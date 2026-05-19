@@ -447,6 +447,7 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
                   return (
                     <motion.button
                       key={idx}
+                      className="option-item"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.1 }}
@@ -464,11 +465,8 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'flex-start',
-                        gap: '12px',
-                        transition: 'all 0.2s'
+                        gap: '12px'
                       }}
-                      whileHover={!answered ? { scale: 1.02, background: 'rgba(255,255,255,0.1)' } : {}}
-                      whileTap={!answered ? { scale: 0.98 } : {}}
                     >
                       {isMultipleChoice && (
                         <div style={{ width: '20px', height: '20px', border: `2px solid ${isSelected ? 'var(--primary)' : 'var(--text-muted)'}`, borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isSelected ? 'var(--primary)' : 'transparent' }}>
@@ -541,6 +539,7 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
                     <div key={leftIdx} style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
                       <button
                         disabled={answered}
+                        className="matching-btn"
                         onClick={() => {
                           if (activeRightIdx !== null) {
                             setMatches(prev => ({ ...prev, [leftIdx]: activeRightIdx }));
@@ -624,6 +623,7 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
                   return (
                     <button
                       key={rightIdx}
+                      className="matching-btn"
                       disabled={answered}
                       onClick={() => {
                         if (activeLeftIdx !== null) {
