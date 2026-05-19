@@ -9,7 +9,12 @@ function App() {
   const [view, setView] = useState<'menu' | 'play' | 'create' | 'history'>('menu');
 
   return (
-    <div className="app-container" style={{ minHeight: '100vh', padding: '2rem' }}>
+    <div className="app-container" style={{ minHeight: '100vh', padding: '2rem', position: 'relative' }}>
+      <div className="bg-blobs-container">
+        <div className="bg-blob bg-blob-1"></div>
+        <div className="bg-blob bg-blob-2"></div>
+        <div className="bg-blob bg-blob-3"></div>
+      </div>
       {view === 'menu' && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}

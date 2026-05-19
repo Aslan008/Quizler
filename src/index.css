@@ -156,3 +156,146 @@ input:focus, textarea:focus, select:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: hsla(0, 0%, 100%, 0.25);
 }
+
+/* Background Blobs for Floating Particles Effect */
+.bg-blobs-container {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.bg-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  mix-blend-mode: screen;
+}
+
+.bg-blob-1 {
+  width: 400px;
+  height: 400px;
+  background: var(--primary);
+  top: -10%;
+  left: 10%;
+  animation: drift 25s infinite alternate ease-in-out;
+}
+
+.bg-blob-2 {
+  width: 500px;
+  height: 500px;
+  background: hsl(290, 90%, 65%);
+  bottom: -15%;
+  right: 5%;
+  animation: drift 30s infinite alternate-reverse ease-in-out;
+}
+
+.bg-blob-3 {
+  width: 350px;
+  height: 350px;
+  background: hsl(150, 80%, 45%);
+  top: 40%;
+  right: 25%;
+  animation: drift 20s infinite alternate ease-in-out;
+}
+
+@keyframes drift {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translate(100px, 80px) scale(1.15) rotate(180deg);
+  }
+  100% {
+    transform: translate(-50px, 120px) scale(0.9) rotate(360deg);
+  }
+}
+
+/* LED-like Checkbox & Radio indicators */
+.led-indicator {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  background: hsla(220, 20%, 5%, 0.5);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+.led-indicator.selected {
+  border-color: var(--primary);
+  background: hsla(250, 84%, 60%, 0.1);
+  box-shadow: 
+    0 0 10px var(--primary-glow),
+    inset 0 1px 2px rgba(255, 255, 255, 0.1);
+}
+
+.led-indicator.correct {
+  border-color: var(--success);
+  background: hsla(150, 80%, 38%, 0.15);
+  box-shadow: 0 0 10px var(--success-glow);
+}
+
+.led-indicator.incorrect {
+  border-color: var(--error);
+  background: hsla(350, 80%, 50%, 0.15);
+  box-shadow: 0 0 10px var(--error-glow);
+}
+
+.led-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-main);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: var(--transition);
+}
+
+.led-indicator.selected .led-dot {
+  opacity: 1;
+  transform: scale(1);
+  background: hsl(250, 95%, 75%);
+  box-shadow: 0 0 6px hsl(250, 95%, 75%);
+}
+
+.led-indicator.correct .led-dot {
+  opacity: 1;
+  transform: scale(1);
+  background: hsl(150, 90%, 60%);
+  box-shadow: 0 0 6px hsl(150, 90%, 60%);
+}
+
+.led-indicator.incorrect .led-dot {
+  opacity: 1;
+  transform: scale(1);
+  background: hsl(350, 90%, 70%);
+  box-shadow: 0 0 6px hsl(350, 90%, 70%);
+}
+
+/* Glowing Progress Bar container and fill */
+.progress-bar-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: hsla(0, 0%, 100%, 0.05);
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), hsl(290, 90%, 65%));
+  box-shadow: 0 0 12px var(--primary-glow);
+  transition: width 0.4s cubic-bezier(0.1, 0.8, 0.1, 1);
+}
+

@@ -391,13 +391,26 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
     const allMatched = isMatching && q.matchingPairs && Object.keys(matches).length === q.matchingPairs.length;
 
     return (
-      <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: layoutAlign, textAlign: textAlign, width: '100%', maxWidth: '800px', margin: '0 auto' }}>
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-          <span>Вопрос {currentQuestionIdx + 1} из {quizData.questions.length}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Clock size={16} /> {formatTime(elapsedTime)}
-          </span>
+      <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: layoutAlign, textAlign: textAlign, width: '100%', maxWidth: '800px', margin: '0 auto', position: 'relative' }}>
+        <div className="progress-bar-container">
+          <div className="progress-bar-fill" style={{ width: `${((currentQuestionIdx + 1) / quizData.questions.length) * 100}%` }}></div>
         </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentQuestionIdx}
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: layoutAlign }}
+          >
+            <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+              <span>Вопрос {currentQuestionIdx + 1} из {quizData.questions.length}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Clock size={16} /> {formatTime(elapsedTime)}
+              </span>
+            </div>
 
         {q.imageUrl && (
           <img src={q.imageUrl} alt="Question graphic" style={{ maxWidth: '100%', borderRadius: '12px', marginBottom: '1.5rem', maxHeight: '400px', objectFit: 'contain' }} />
@@ -469,8 +482,12 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
                       }}
                     >
                       {isMultipleChoice && (
-                        <div style={{ width: '20px', height: '20px', border: `2px solid ${isSelected ? 'var(--primary)' : 'var(--text-muted)'}`, borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isSelected ? 'var(--primary)' : 'transparent' }}>
-                          {isSelected && <CheckCircle size={14} color="white" />}
+                        <div 
+                          className={`led-indicator ${isSelected ? 'selected' : ''} ${
+                            answered ? (opt.isCorrect ? 'correct' : (isSelected ? 'incorrect' : '')) : ''
+                          }`}
+                        >
+                          <div className="led-dot" />
                         </div>
                       )}
                       <span style={{ flex: 1 }}>{opt.text}</span>
@@ -684,6 +701,8 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
             </button>
           </motion.div>
         )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     );
   }
