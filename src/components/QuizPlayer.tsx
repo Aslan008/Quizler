@@ -17,6 +17,8 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
   // Setup settings
   const [marker, setMarker] = useState<string>('*');
   const [simpleMode, setSimpleMode] = useState<boolean>(false);
+  const [shuffleQuestions, setShuffleQuestions] = useState<boolean>(true);
+  const [shuffleOptions, setShuffleOptions] = useState<boolean>(true);
 
   // Play state
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
@@ -118,15 +120,26 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
       }
     }
     
-    if (data.shuffle_questions) {
+    const shouldShuffleQuestions = isSimple 
+      ? (data.shuffle_questions !== undefined ? data.shuffle_questions : true) 
+      : shuffleQuestions;
+      
+    const shouldShuffleOptions = isSimple 
+      ? (data.shuffle_options !== undefined ? data.shuffle_options : true) 
+      : shuffleOptions;
+
+    if (shouldShuffleQuestions) {
       data.questions = [...data.questions].sort(() => Math.random() - 0.5);
     }
 
-    if (data.shuffle_options) {
-      data.questions = data.questions.map(q => ({
-        ...q,
-        options: [...q.options].sort(() => Math.random() - 0.5)
-      }));
+    if (shouldShuffleOptions) {
+      data.questions = data.questions.map(q => {
+        if (q.type === 'matching' || q.type === 'ordering') return q;
+        return {
+          ...q,
+          options: [...q.options].sort(() => Math.random() - 0.5)
+        };
+      });
     }
 
     // Pre-shuffle matching right options
@@ -181,6 +194,8 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
       if (simpleMode) {
         startQuizDirectly(file, '', activeMarker, true);
       } else {
+        setShuffleQuestions(preliminaryData.shuffle_questions !== undefined ? preliminaryData.shuffle_questions : true);
+        setShuffleOptions(preliminaryData.shuffle_options !== undefined ? preliminaryData.shuffle_options : true);
         setStep('setup');
       }
     } else {
@@ -194,6 +209,8 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
         if (simpleMode) {
           startQuizDirectly(null, text, activeMarker, true);
         } else {
+          setShuffleQuestions(preliminaryData.shuffle_questions !== undefined ? preliminaryData.shuffle_questions : true);
+          setShuffleOptions(preliminaryData.shuffle_options !== undefined ? preliminaryData.shuffle_options : true);
           setStep('setup');
         }
       };
@@ -234,6 +251,8 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
     } else {
       setQuizData(savedQuiz);
       setMarker(savedQuiz.answer_marker || '*');
+      setShuffleQuestions(savedQuiz.shuffle_questions !== undefined ? savedQuiz.shuffle_questions : true);
+      setShuffleOptions(savedQuiz.shuffle_options !== undefined ? savedQuiz.shuffle_options : true);
       setStep('setup');
     }
   };
@@ -506,7 +525,7 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
           <h2 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Settings size={24} /> Настройка тренировки
           </h2>
-          <div style={{ marginBottom: '2rem' }}>
+          <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>
               Символ правильного ответа (маркер):
             </label>
@@ -518,6 +537,28 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
               placeholder="Например: *"
             />
           </div>
+
+          <div style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)', cursor: 'pointer', userSelect: 'none' }}>
+              <input 
+                type="checkbox" 
+                checked={shuffleQuestions} 
+                onChange={e => setShuffleQuestions(e.target.checked)}
+                style={{ width: '18px', height: '18px' }}
+              />
+              Перемешать вопросы
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)', cursor: 'pointer', userSelect: 'none' }}>
+              <input 
+                type="checkbox" 
+                checked={shuffleOptions} 
+                onChange={e => setShuffleOptions(e.target.checked)}
+                style={{ width: '18px', height: '18px' }}
+              />
+              Перемешать варианты ответов
+            </label>
+          </div>
+
           <button className="btn" onClick={startQuiz}>
             Начать квиз
           </button>
