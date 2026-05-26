@@ -35,6 +35,18 @@ export interface QuizData {
   questions: QuizQuestion[];
 }
 
+export function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = temp;
+  }
+  return arr;
+}
+
+
 export function parseMarkdownQuiz(markdown: string, overrideAnswerMarker?: string): QuizData {
   const data: QuizData = {
     title: 'Untitled Quiz',
@@ -344,7 +356,7 @@ export function generateMarkdownQuiz(data: QuizData, useInvisibleMarker: boolean
           text: pair.right,
           key: '\u200B'.repeat(idx + 1)
         }));
-        const shuffledRights = [...rights].sort(() => Math.random() - 0.5);
+        const shuffledRights = shuffleArray(rights);
         
         lefts.forEach((l, idx) => {
           const r = shuffledRights[idx];
@@ -353,9 +365,9 @@ export function generateMarkdownQuiz(data: QuizData, useInvisibleMarker: boolean
       } else {
         // Use [A]/[B]/... tag format with shuffled right column
         const keys = q.matchingPairs.map((_, idx) => String.fromCharCode(65 + (idx % 26)));
-        const shuffledRightPairs = q.matchingPairs
-          .map((pair, idx) => ({ text: pair.right, key: keys[idx] }))
-          .sort(() => Math.random() - 0.5);
+        const shuffledRightPairs = shuffleArray(
+          q.matchingPairs.map((pair, idx) => ({ text: pair.right, key: keys[idx] }))
+        );
         
         q.matchingPairs.forEach((pair, idx) => {
           const rightEntry = shuffledRightPairs[idx];

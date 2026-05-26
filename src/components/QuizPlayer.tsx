@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Upload, Settings, CheckCircle, XCircle, ChevronRight, HelpCircle, Clock, ArrowLeft, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { parseMarkdownQuiz, type QuizData, type QuizOption } from '../utils/parser';
+import { parseMarkdownQuiz, shuffleArray, type QuizData, type QuizOption } from '../utils/parser';
 import { parseDocxQuiz } from '../utils/docx';
 import { playSound } from '../utils/audio';
 import { saveHistory } from '../utils/history';
@@ -73,7 +73,7 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
           id: `opt-${idx}`
         }));
         // Shuffle for ordering question
-        setOrderedOptions([...mapped].sort(() => Math.random() - 0.5));
+        setOrderedOptions(shuffleArray(mapped));
       }
     }
   }, [currentQuestionIdx, quizData]);
@@ -129,7 +129,7 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
       : shuffleOptions;
 
     if (shouldShuffleQuestions) {
-      data.questions = [...data.questions].sort(() => Math.random() - 0.5);
+      data.questions = shuffleArray(data.questions);
     }
 
     if (shouldShuffleOptions) {
@@ -137,7 +137,7 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
         if (q.type === 'matching' || q.type === 'ordering') return q;
         return {
           ...q,
-          options: [...q.options].sort(() => Math.random() - 0.5)
+          options: shuffleArray(q.options)
         };
       });
     }
@@ -147,9 +147,7 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
       if (q.type === 'matching' && q.matchingPairs) {
         return {
           ...q,
-          shuffledRightOptions: [...q.matchingPairs]
-            .map(p => p.right)
-            .sort(() => Math.random() - 0.5)
+          shuffledRightOptions: shuffleArray(q.matchingPairs.map(p => p.right))
         };
       }
       return q;
