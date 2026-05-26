@@ -41,6 +41,21 @@ export async function parseDocxQuiz(file: File, answerMarker: string = '*'): Pro
     return (line.length < 60 && !line.includes(')') && !line.startsWith('*') && !line.startsWith('['));
   };
 
+  const isQuestionStartLine = (line: string): boolean => {
+    if (line.match(matchingLineRegex) || line.match(optionRegex)) {
+      return false;
+    }
+    // Ends with ? or :
+    if (line.endsWith('?') || line.endsWith(':')) {
+      return true;
+    }
+    // Starts with a known question keyword
+    if (questionStartRegex.test(line)) {
+      return true;
+    }
+    return false;
+  };
+
   const finalizeQuestion = () => {
     if (!currentQuestion) return;
     
@@ -102,7 +117,7 @@ export async function parseDocxQuiz(file: File, answerMarker: string = '*'): Pro
     const line = lines[i];
     
     // Check if this is a question start
-    if (questionStartRegex.test(line) && !line.match(matchingLineRegex)) {
+    if (isQuestionStartLine(line)) {
       finalizeQuestion();
       
       currentQuestion = {
@@ -135,7 +150,7 @@ export async function parseDocxQuiz(file: File, answerMarker: string = '*'): Pro
       // this might be the next question
       if (matchingLines.length > 0 && !matchLine) {
         // Check if it's a new question
-        if (questionStartRegex.test(line)) {
+        if (isQuestionStartLine(line)) {
           finalizeQuestion();
           currentQuestion = {
             id: Math.random().toString(36).substring(7),
