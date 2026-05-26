@@ -11,6 +11,7 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
   const [rawFile, setRawFile] = useState<string>('');
   const [fileObj, setFileObj] = useState<File | null>(null);
   const [quizData, setQuizData] = useState<QuizData | null>(null);
+  const [savedQuiz, setSavedQuiz] = useState<QuizData | null>(null);
   
   // Setup settings
   const [marker, setMarker] = useState<string>('*');
@@ -34,6 +35,17 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
   const [matches, setMatches] = useState<Record<number, number>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const savedStr = localStorage.getItem('quizler_saved_quiz');
+    if (savedStr) {
+      try {
+        setSavedQuiz(JSON.parse(savedStr));
+      } catch (e) {
+        console.error('Failed to parse saved quiz', e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (initialMarkdown) {
@@ -68,12 +80,24 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
     setIsDragging(false);
   };
 
-  const startQuizDirectly = async (fileToParse: File | null, rawTextToParse: string, currentMarker: string, isSimple: boolean) => {
+  const startQuizDirectly = async (fileToParse: File | null, rawTextToParse: string, currentMarker: string, isSimple: boolean, preLoadedData?: QuizData) => {
     let data: QuizData;
-    if (fileToParse && fileToParse.name.endsWith('.docx')) {
+    if (preLoadedData) {
+      data = JSON.parse(JSON.stringify(preLoadedData)); // deep clone
+    } else if (fileToParse && fileToParse.name.endsWith('.docx')) {
       data = await parseDocxQuiz(fileToParse, currentMarker);
     } else {
       data = parseMarkdownQuiz(rawTextToParse, currentMarker);
+    }
+    
+    // Save to localStorage if it's a newly parsed quiz
+    if (!preLoadedData && data && data.questions && data.questions.length > 0) {
+      try {
+        localStorage.setItem('quizler_saved_quiz', JSON.stringify(data));
+        setSavedQuiz(data);
+      } catch (e) {
+        console.error('Failed to save quiz to localStorage', e);
+      }
     }
     
     if (data.shuffle_questions) {
@@ -160,7 +184,46 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
   };
 
   const startQuiz = () => {
-    startQuizDirectly(fileObj, rawFile, marker, simpleMode);
+    if (!fileObj && !rawFile && quizData) {
+      startQuizDirectly(null, '', marker, simpleMode, quizData);
+    } else {
+      startQuizDirectly(fileObj, rawFile, marker, simpleMode);
+    }
+  };
+
+  const restartQuiz = () => {
+    const savedStr = localStorage.getItem('quizler_saved_quiz');
+    let baseData: QuizData | null = null;
+    if (savedStr) {
+      try {
+        baseData = JSON.parse(savedStr);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (!baseData && quizData) {
+      baseData = quizData;
+    }
+    if (baseData) {
+      startQuizDirectly(null, '', marker, simpleMode, baseData);
+    }
+  };
+
+  const startSavedQuiz = () => {
+    if (!savedQuiz) return;
+    if (simpleMode) {
+      startQuizDirectly(null, '', savedQuiz.answer_marker || '*', true, savedQuiz);
+    } else {
+      setQuizData(savedQuiz);
+      setMarker(savedQuiz.answer_marker || '*');
+      setStep('setup');
+    }
+  };
+
+  const clearSavedQuiz = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    localStorage.removeItem('quizler_saved_quiz');
+    setSavedQuiz(null);
   };
 
   // Elapsed time counter (always runs during play)
@@ -336,6 +399,49 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
             Быстрый запуск (без настроек и кастомных стилей)
           </label>
         </div>
+
+        {savedQuiz && (
+          <div 
+            className="glass-panel" 
+            style={{ 
+              padding: '2rem', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              gap: '1rem', 
+              border: '1px solid rgba(99, 102, 241, 0.2)',
+              marginTop: '1rem' 
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+              <HelpCircle size={20} color="var(--primary)" />
+              <span>Ранее загруженный тест в памяти браузера:</span>
+            </div>
+            <h3 style={{ fontSize: '1.4rem', margin: 0, color: 'var(--text-main)', textAlign: 'center' }}>{savedQuiz.title}</h3>
+            <p style={{ color: 'var(--text-muted)', margin: 0 }}>Количество вопросов: <strong>{savedQuiz.questions.length}</strong></p>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', width: '100%', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button 
+                className="btn" 
+                onClick={startSavedQuiz}
+                style={{ padding: '8px 24px' }}
+              >
+                Запустить тест
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={clearSavedQuiz}
+                style={{ 
+                  padding: '8px 24px', 
+                  color: 'var(--error)', 
+                  borderColor: 'rgba(239, 68, 68, 0.3)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.05)'
+                }}
+              >
+                Очистить память
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -392,7 +498,23 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
 
     return (
       <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: layoutAlign, textAlign: textAlign, width: '100%', maxWidth: '800px', margin: '0 auto', position: 'relative' }}>
-        <div className="progress-bar-container">
+        
+        {/* Top Control Bar */}
+        <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className="btn btn-secondary" onClick={onBack} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ArrowLeft size={16} /> В меню
+            </button>
+            <button className="btn btn-secondary" onClick={restartQuiz} style={{ padding: '8px 16px', fontSize: '0.9rem' }}>
+              Перезапустить
+            </button>
+          </div>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.95rem' }}>
+            <Clock size={16} /> {formatTime(elapsedTime)}
+          </span>
+        </div>
+
+        <div className="progress-bar-container" style={{ marginBottom: '1.5rem' }}>
           <div className="progress-bar-fill" style={{ width: `${((currentQuestionIdx + 1) / quizData.questions.length) * 100}%` }}></div>
         </div>
 
@@ -407,9 +529,6 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
           >
             <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
               <span>Вопрос {currentQuestionIdx + 1} из {quizData.questions.length}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Clock size={16} /> {formatTime(elapsedTime)}
-              </span>
             </div>
 
         {q.imageUrl && (
@@ -736,7 +855,10 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
             <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Вопросов</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button className="btn" onClick={restartQuiz}>
+            Пройти заново
+          </button>
           <button className="btn btn-secondary" onClick={onBack}>
             В главное меню
           </button>
