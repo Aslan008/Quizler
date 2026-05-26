@@ -2,6 +2,7 @@ export interface QuizOption {
   text: string;
   isCorrect: boolean;
   originalText: string;
+  correctOrder?: number; // 1-based order for sequencing questions
 }
 
 export interface MatchingPair {
@@ -14,7 +15,7 @@ export interface QuizQuestion {
   text: string;
   hint?: string;
   imageUrl?: string;
-  type?: 'choice' | 'matching';
+  type?: 'choice' | 'matching' | 'ordering';
   options: QuizOption[];
   matchingPairs?: MatchingPair[];
   shuffledRightOptions?: string[];

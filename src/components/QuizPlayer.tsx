@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Upload, Settings, CheckCircle, XCircle, ChevronRight, HelpCircle, Clock, ArrowLeft } from 'lucide-react';
+import { Upload, Settings, CheckCircle, XCircle, ChevronRight, HelpCircle, Clock, ArrowLeft, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseMarkdownQuiz, type QuizData, type QuizOption } from '../utils/parser';
 import { parseDocxQuiz } from '../utils/docx';
 import { playSound } from '../utils/audio';
 import { saveHistory } from '../utils/history';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, initialMarkdown?: string }) {
   const [step, setStep] = useState<'upload' | 'setup' | 'play' | 'result'>('upload');
@@ -34,6 +35,9 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
   const [activeRightIdx, setActiveRightIdx] = useState<number | null>(null);
   const [matches, setMatches] = useState<Record<number, number>>({});
 
+  // Ordering state
+  const [orderedOptions, setOrderedOptions] = useState<(QuizOption & { id: string })[]>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -57,6 +61,20 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
       setStep('setup');
     }
   }, [initialMarkdown]);
+
+  useEffect(() => {
+    if (quizData) {
+      const q = quizData.questions[currentQuestionIdx];
+      if (q && q.type === 'ordering') {
+        const mapped = q.options.map((o, idx) => ({
+          ...o,
+          id: `opt-${idx}`
+        }));
+        // Shuffle for ordering question
+        setOrderedOptions([...mapped].sort(() => Math.random() - 0.5));
+      }
+    }
+  }, [currentQuestionIdx, quizData]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -258,6 +276,19 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
 
   // Scoring logic
   const calcPoints = (q: typeof quizData extends null ? never : NonNullable<typeof quizData>['questions'][0], sel: number[], m: Record<number, number>): { points: number, maxPoints: number } => {
+    if (q.type === 'ordering') {
+      const total = orderedOptions.length;
+      if (total === 0) return { points: 0, maxPoints: 0 };
+      let correct = 0;
+      orderedOptions.forEach((opt, idx) => {
+        if (opt.correctOrder === idx + 1) {
+          correct++;
+        }
+      });
+      if (correct === total) return { points: 2, maxPoints: 2 };
+      if (correct >= Math.ceil(total * 2 / 3)) return { points: 1, maxPoints: 2 };
+      return { points: 0, maxPoints: 2 };
+    }
     if (q.type === 'matching') {
       const total = q.matchingPairs?.length || 0;
       if (total === 0) return { points: 0, maxPoints: 0 };
@@ -282,6 +313,23 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
     if (net === totalCorrect && wrongSel === 0) return { points: 2, maxPoints: 2 };
     if (net >= Math.ceil(totalCorrect * 2 / 3)) return { points: 1, maxPoints: 2 };
     return { points: 0, maxPoints: 2 };
+  };
+
+  const handleDragEnd = (result: any) => {
+    if (!result.destination || answered) return;
+    const items = Array.from(orderedOptions);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    setOrderedOptions(items);
+  };
+
+  const evaluateOrderingAnswer = () => {
+    if (!quizData) return;
+    setAnswered(true);
+    const q = quizData.questions[currentQuestionIdx];
+    const result = calcPoints(q, [], {});
+    setQuestionResults(prev => [...prev, result]);
+    playSound(result.points > 0 ? 'correct' : 'incorrect');
   };
 
   const finishQuiz = (qData: QuizData | null = quizData) => {
@@ -551,82 +599,90 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
           </div>
         )}
 
-        {!isMatching ? (
+        {q.type === 'ordering' ? (
           <>
-            {isMultipleChoice && !answered && (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>Выберите один или несколько вариантов ответа.</p>
+            {!answered && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+                Перетащите элементы в правильном порядке сверху вниз.
+              </p>
             )}
 
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <AnimatePresence>
-                {q.options.map((opt, idx) => {
-                  let bgColor = 'var(--surface)';
-                  let borderColor = 'var(--surface-border)';
-                  const isSelected = selectedOptions.includes(idx);
-                  
-                  if (answered) {
-                    if (opt.isCorrect) {
-                      bgColor = 'rgba(16, 185, 129, 0.2)'; // success
-                      borderColor = 'var(--success)';
-                    } else if (isSelected) {
-                      bgColor = 'rgba(239, 68, 68, 0.2)'; // error
-                      borderColor = 'var(--error)';
-                    }
-                  } else if (isSelected) {
-                    borderColor = 'var(--primary)';
-                  }
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="ordering-list">
+                {(provided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}
+                  >
+                    {orderedOptions.map((opt, idx) => {
+                      let bgColor = 'var(--surface)';
+                      let borderColor = 'var(--surface-border)';
+                      if (answered) {
+                        if (opt.correctOrder === idx + 1) {
+                          bgColor = 'rgba(16, 185, 129, 0.2)';
+                          borderColor = 'var(--success)';
+                        } else {
+                          bgColor = 'rgba(239, 68, 68, 0.2)';
+                          borderColor = 'var(--error)';
+                        }
+                      }
+                      return (
+                        <Draggable key={opt.id} draggableId={opt.id} index={idx} isDragDisabled={answered}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className="option-item"
+                              style={{
+                                ...provided.draggableProps.style,
+                                background: snapshot.isDragging ? 'var(--surface-hover)' : bgColor,
+                                border: `1px solid ${borderColor}`,
+                                color: 'var(--text-main)',
+                                padding: '16px',
+                                borderRadius: '12px',
+                                fontSize: '1.1rem',
+                                cursor: answered ? 'default' : (snapshot.isDragging ? 'grabbing' : 'grab'),
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                userSelect: 'none'
+                              }}
+                            >
+                              <GripVertical size={20} color={answered ? 'var(--text-muted)' : 'var(--primary)'} style={{ flexShrink: 0 }} />
+                              <span style={{ flex: 1 }}>{opt.text}</span>
+                              {answered && (
+                                <span style={{ 
+                                  fontSize: '0.85rem', 
+                                  background: 'rgba(255,255,255,0.08)', 
+                                  padding: '4px 8px', 
+                                  borderRadius: '6px', 
+                                  color: opt.correctOrder === idx + 1 ? 'var(--success)' : 'var(--error)' 
+                                }}>
+                                  Позиция: {idx + 1} (Ожидалось: {opt.correctOrder})
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
 
-                  return (
-                    <motion.button
-                      key={idx}
-                      className="option-item"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.1 }}
-                      disabled={answered}
-                      onClick={() => handleOptionClick(idx, opt, isMultipleChoice)}
-                      style={{
-                        background: bgColor,
-                        border: `1px solid ${borderColor}`,
-                        color: 'var(--text-main)',
-                        padding: '16px',
-                        borderRadius: '12px',
-                        fontSize: '1.1rem',
-                        textAlign: 'left',
-                        cursor: answered ? 'default' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'flex-start',
-                        gap: '12px'
-                      }}
-                    >
-                      {isMultipleChoice && (
-                        <div 
-                          className={`led-indicator ${isSelected ? 'selected' : ''} ${
-                            answered ? (opt.isCorrect ? 'correct' : (isSelected ? 'incorrect' : '')) : ''
-                          }`}
-                        >
-                          <div className="led-dot" />
-                        </div>
-                      )}
-                      <span style={{ flex: 1 }}>{opt.text}</span>
-                      {answered && opt.isCorrect && <CheckCircle color="var(--success)" size={20} />}
-                      {answered && !opt.isCorrect && isSelected && <XCircle color="var(--error)" size={20} />}
-                    </motion.button>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-
-            {isMultipleChoice && !answered && selectedOptions.length > 0 && (
-               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ width: '100%', marginTop: '2rem', display: 'flex', justifyContent: layoutAlign === 'flex-start' ? 'flex-start' : layoutAlign === 'flex-end' ? 'flex-end' : 'center' }}>
-                <button className="btn" onClick={() => evaluateAnswer(selectedOptions, true)}>
+            {!answered && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ width: '100%', marginTop: '2rem', display: 'flex', justifyContent: layoutAlign === 'flex-start' ? 'flex-start' : layoutAlign === 'flex-end' ? 'flex-end' : 'center' }}>
+                <button className="btn" onClick={evaluateOrderingAnswer}>
                   Ответить
                 </button>
-               </motion.div>
+              </motion.div>
             )}
           </>
-        ) : (
+        ) : q.type === 'matching' ? (
           <div style={{ width: '100%' }}>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', textAlign: 'center' }}>
               Установите соответствие: выберите элемент слева, а затем подходящий элемент справа.
@@ -812,6 +868,81 @@ export function QuizPlayer({ onBack, initialMarkdown }: { onBack: () => void, in
               </div>
             )}
           </div>
+        ) : (
+          <>
+            {isMultipleChoice && !answered && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>Выберите один или несколько вариантов ответа.</p>
+            )}
+
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <AnimatePresence>
+                {q.options.map((opt, idx) => {
+                  let bgColor = 'var(--surface)';
+                  let borderColor = 'var(--surface-border)';
+                  const isSelected = selectedOptions.includes(idx);
+                  
+                  if (answered) {
+                    if (opt.isCorrect) {
+                      bgColor = 'rgba(16, 185, 129, 0.2)'; // success
+                      borderColor = 'var(--success)';
+                    } else if (isSelected) {
+                      bgColor = 'rgba(239, 68, 68, 0.2)'; // error
+                      borderColor = 'var(--error)';
+                    }
+                  } else if (isSelected) {
+                    borderColor = 'var(--primary)';
+                  }
+
+                  return (
+                    <motion.button
+                      key={idx}
+                      className="option-item"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                      disabled={answered}
+                      onClick={() => handleOptionClick(idx, opt, isMultipleChoice)}
+                      style={{
+                        background: bgColor,
+                        border: `1px solid ${borderColor}`,
+                        color: 'var(--text-main)',
+                        padding: '16px',
+                        borderRadius: '12px',
+                        fontSize: '1.1rem',
+                        textAlign: 'left',
+                        cursor: answered ? 'default' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-start',
+                        gap: '12px'
+                      }}
+                    >
+                      {isMultipleChoice && (
+                        <div 
+                          className={`led-indicator ${isSelected ? 'selected' : ''} ${
+                            answered ? (opt.isCorrect ? 'correct' : (isSelected ? 'incorrect' : '')) : ''
+                          }`}
+                        >
+                          <div className="led-dot" />
+                        </div>
+                      )}
+                      <span style={{ flex: 1 }}>{opt.text}</span>
+                      {answered && opt.isCorrect && <CheckCircle color="var(--success)" size={20} />}
+                      {answered && !opt.isCorrect && isSelected && <XCircle color="var(--error)" size={20} />}
+                    </motion.button>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+
+            {isMultipleChoice && !answered && selectedOptions.length > 0 && (
+               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ width: '100%', marginTop: '2rem', display: 'flex', justifyContent: layoutAlign === 'flex-start' ? 'flex-start' : layoutAlign === 'flex-end' ? 'flex-end' : 'center' }}>
+                <button className="btn" onClick={() => evaluateAnswer(selectedOptions, true)}>
+                  Ответить
+                </button>
+               </motion.div>
+            )}
+          </>
         )}
 
         {answered && (

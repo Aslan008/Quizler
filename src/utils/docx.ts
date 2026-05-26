@@ -35,6 +35,15 @@ export async function parseDocxQuiz(file: File, answerMarker: string = '*'): Pro
            lower.includes('[matching]');
   };
 
+  // Detect ordering question trigger words
+  const isOrderingQuestion = (text: string): boolean => {
+    const lower = text.toLowerCase();
+    return lower.includes('расположите') || 
+           lower.includes('последовательность') ||
+           lower.includes('[ordering]') ||
+           lower.includes('[последовательность]');
+  };
+
   // Header lines to skip in matching questions (column titles)
   const isHeaderLine = (line: string): boolean => {
     // Short lines that describe columns
@@ -120,13 +129,16 @@ export async function parseDocxQuiz(file: File, answerMarker: string = '*'): Pro
     if (isQuestionStartLine(line)) {
       finalizeQuestion();
       
+      const qType = isMatchingQuestion(line) ? 'matching' : isOrderingQuestion(line) ? 'ordering' : 'choice';
+      
       currentQuestion = {
         id: Math.random().toString(36).substring(7),
         text: line,
-        options: []
+        options: [],
+        type: qType
       };
       
-      if (isMatchingQuestion(line)) {
+      if (qType === 'matching') {
         isCollectingMatching = true;
       }
       
@@ -152,12 +164,14 @@ export async function parseDocxQuiz(file: File, answerMarker: string = '*'): Pro
         // Check if it's a new question
         if (isQuestionStartLine(line)) {
           finalizeQuestion();
+          const qType = isMatchingQuestion(line) ? 'matching' : isOrderingQuestion(line) ? 'ordering' : 'choice';
           currentQuestion = {
             id: Math.random().toString(36).substring(7),
             text: line,
-            options: []
+            options: [],
+            type: qType
           };
-          if (isMatchingQuestion(line)) {
+          if (qType === 'matching') {
             isCollectingMatching = true;
           }
           continue;
@@ -188,7 +202,8 @@ export async function parseDocxQuiz(file: File, answerMarker: string = '*'): Pro
       currentQuestion.options.push({
         text: optText,
         isCorrect,
-        originalText: line
+        originalText: line,
+        correctOrder: (currentQuestion.type === 'ordering' && asterisks.length > 0) ? asterisks.length : undefined
       });
       continue;
     }
