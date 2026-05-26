@@ -39,6 +39,7 @@
   transition: var(--transition) !important;
   position: relative;
   overflow: hidden;
+  color: var(--text-main) !important;
 }
 
 .matching-btn::after {
